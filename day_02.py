@@ -1,7 +1,7 @@
 #!/usr/bin/env -S pdm run python
 
 from dataclasses import dataclass
-import re
+import parse
 
 @dataclass
 class CubeSubset:
@@ -9,19 +9,22 @@ class CubeSubset:
     >>> CubeSubset("3 blue, 4 red")
     CubeSubset(blue=3, red=4, green=0)
     """
-    blue: int 
-    red: int 
-    green: int
+    blue: int = 0
+    red: int = 0
+    green: int = 0
 
     def __init__(self, data:str):
-        for colour in "red", "green", "blue":
-            parsed = re.search(rf"(?P<count>\d+) {colour}", data)
-            self.__dict__[colour] = int(parsed["count"]) if parsed else 0
+        @parse.with_pattern("|".join(self.__dataclass_fields__))
+        def parse_colour(text):
+            return text
+
+        for count, colour in parse.findall("{:n} {:colour}", data, extra_types={"colour":parse_colour}):
+            setattr(self, colour, count) 
 
 def parse_games(data: str) -> dict[int, list[CubeSubset]]:
     def parse_game(line):
-        id_, subset_data = re.fullmatch(r"Game (\d+): (.*)", line).groups()
-        return int(id_), [CubeSubset(subset) for subset in subset_data.split(";")]
+        id_, subset_data = parse.parse("Game {:d}: {}", line)
+        return id_, [CubeSubset(subset) for subset in subset_data.split(";")]
 
     return dict(parse_game(line) for line in data.splitlines())
 
