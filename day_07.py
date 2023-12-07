@@ -3,24 +3,28 @@
 from enum import Enum
 from dataclasses import dataclass
 from collections import Counter
-from typing import NamedTuple
+import parse
 
 @dataclass
 class Card:
     value: str
+    numeric_value: int
 
-    @property
-    def numeric_value(self) -> int:
-        if self.value.isdigit():
-            return int(self.value)
-
-        return "TJQKA".index(self.value) + 10
+    def __init__(self, face_value:str):
+        self.value = face_value
+        if face_value.isdigit():
+            self.numeric_value = int(self.value)
+        else:
+            self.numeric_value = "TJQKA".index(self.value) + 10
 
     def __lt__(self, other:"Card"):
         return self.numeric_value < other.numeric_value
 
     def __hash__(self):
         return hash(self.value)
+
+joker = Card("J")
+joker.numeric_value = 1
 
 class HandType(Enum):
     HIGH_CARD = 1
@@ -34,60 +38,41 @@ class HandType(Enum):
     def __lt__(self, other:"HandType"):
         return self.value < other.value
 
-    @staticmethod
-    def type_of(hand: Counter[Card]):
-        match hand.most_common():
+@dataclass(order=True)
+class Hand:
+    hand_type: HandType
+    cards: list[Card]
+
+    def __init__(self, cards:list[Card]):
+        self.cards = cards
+
+        # if all the cards are jokers.. thats just five jokers,
+        # so we skip all the shenanigans
+        if cards == [joker,joker,joker,joker,joker]:
+            self.hand_type = HandType.FIVE_OF_A_KIND
+            return
+
+        # otherwise we find the other card we have the most of (breaking ties with the card value)
+        # and treat the jokers as that for the purpose of figuring out the hand type
+        count = Counter(card for card in cards if card != joker)
+        n_jokers = 5 - count.total()
+        count[max(count, key=count.get)] += n_jokers
+
+        match count.most_common():
             case [(_, 1),(_, 1),(_, 1),(_, 1),(_, 1)]:
-                return HandType.HIGH_CARD
+                self.hand_type = HandType.HIGH_CARD
             case [(_,2),(_, 1),(_, 1),(_, 1)]:
-                return HandType.PAIR
+                self.hand_type = HandType.PAIR
             case [(_,2), (_,2), (_,1)]:
-                return HandType.TWO_PAIR
+                self.hand_type = HandType.TWO_PAIR
             case [(_,3),(_, 1),(_, 1)]:
-                return HandType.THREE_OF_A_KIND
+                self.hand_type = HandType.THREE_OF_A_KIND
             case [(_,3),(_,2)]:
-                return HandType.FULL_HOUSE
+                self.hand_type = HandType.FULL_HOUSE
             case [(_,4),(_,1)]:
-                return HandType.FOUR_OF_A_KIND
+                self.hand_type = HandType.FOUR_OF_A_KIND
             case [(_,5)]:
-                return HandType.FIVE_OF_A_KIND
-
-type Hand = tuple[HandType, Card, Card, Card, Card, Card]
-
-class Play(NamedTuple):
-    hand: Hand
-    bet: int
-
-    @classmethod
-    def parse(cls, data:str):
-        hand_data,bet_data = data.split()
-        cards = [Card(c) for c in hand_data]
-        hand = (HandType.type_of(Counter(hand_data)), *cards)
-        return cls(hand, int(bet_data))
-
-    @classmethod
-    def parse_with_jokers(cls, data:str):
-        hand_data,bet_data = data.split()
-
-        # replace all the Jokers with 1s so they compare properly
-        cards = [Card(c) for c in hand_data.replace("J", "1")]
-
-        joker = Card("1")
-        count = Counter(cards)
-        n_jokers = count[joker]
-
-        if n_jokers == 5:
-            # if all the cards are jokers then.. its just 5 jokers
-            hand = (HandType.FIVE_OF_A_KIND, joker, joker, joker, joker, joker)
-        else:
-            # otherwise the jokers become the most commor non-joker card
-            # breaking ties with face value
-            del count[joker]
-            best = max((n,val) for val,n in count.most_common())[1]
-            count[best] += n_jokers 
-            hand = (HandType.type_of(count), *cards)
-
-        return cls(hand, int(bet_data))
+                self.hand_type = HandType.FIVE_OF_A_KIND
 
 def part_1(rawdata):
     r"""
@@ -100,8 +85,12 @@ def part_1(rawdata):
     ... ''')
     6440
     """
-    plays = sorted(Play.parse(line) for line in rawdata.splitlines())
-    return sum(i*play.bet for i,play in enumerate(plays, start=1))
+    @parse.with_pattern(r"[2-9TJKQA]{5}")
+    def parse_hand(data:str):
+        return Hand([Card(c) for c in data])
+
+    plays = sorted(tuple(play) for play in parse.findall("{:hand} {:d}", rawdata, extra_types={"hand":parse_hand}))
+    return sum(i*bet for i,(_,bet) in enumerate(plays, start=1))
 
 def part_2(rawdata):
     r"""
@@ -114,8 +103,12 @@ def part_2(rawdata):
     ... ''')
     5905
     """
-    plays = sorted(Play.parse_with_jokers(line) for line in rawdata.splitlines())
-    return sum(i*play.bet for i,play in enumerate(plays, start=1))
+    @parse.with_pattern(r"[2-9TJKQA]{5}")
+    def parse_hand(data:str):
+        return Hand([Card(c) if c != "J" else joker for c in data])
+
+    plays = sorted(tuple(play) for play in parse.findall("{:hand} {:d}", rawdata, extra_types={"hand":parse_hand}))
+    return sum(i*bet for i,(_,bet) in enumerate(plays, start=1))
 
 if __name__ == "__main__":
     import aocd
