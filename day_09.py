@@ -1,5 +1,6 @@
 #!/usr/bin/env -S pdm run python
 import itertools as it
+from functools import reduce
 
 def part_1(rawdata):
     r"""
@@ -38,11 +39,8 @@ def part_2(rawdata):
             vals = [b-a for a,b in it.pairwise(vals)]
             firsts.append(vals[0])
 
-        # Im sure theres a nicer way to do this but I cant think of it
-        extra = 0
-        for prev in reversed(firsts):
-            extra = prev - extra
-        extrapolated.append(extra)
+        extrapolated.append(reduce(lambda extra,prev:prev-extra, reversed(firsts)))
+
     return sum(extrapolated)
 
 if __name__ == "__main__":
