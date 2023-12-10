@@ -3,21 +3,22 @@
 import networkx as nx
 import itertools as it
 
-tiles = {
-    "|": dict(north=True , south=True , east=False, west=False),
-    "-": dict(north=False, south=False, east=True , west=True ),
-    "L": dict(north=True , south=False, east=True , west=False),
-    "J": dict(north=True , south=False, east=False, west=True ),
-    "7": dict(north=False, south=True , east=False, west=True ),
-    "F": dict(north=False, south=True , east=True , west=False),
-    ".": dict(north=False, south=False, east=False, west=False),
-    "S": dict(north=True , south=True , east=True , west=True )
-}
 
 def parse_map(rawdata: str):
     data = rawdata.splitlines()
     rows, columns = len(data), len(data[0])
     
+    tiles = {
+        "|": dict(north=True , south=True , east=False, west=False),
+        "-": dict(north=False, south=False, east=True , west=True ),
+        "L": dict(north=True , south=False, east=True , west=False),
+        "J": dict(north=True , south=False, east=False, west=True ),
+        "7": dict(north=False, south=True , east=False, west=True ),
+        "F": dict(north=False, south=True , east=True , west=False),
+        ".": dict(north=False, south=False, east=False, west=False),
+        "S": dict(north=True , south=True , east=True , west=True )
+    }
+
     g = nx.Graph(rows=rows,columns=columns)
 
     for x,y in it.product(range(columns),range(rows)):
@@ -26,7 +27,7 @@ def parse_map(rawdata: str):
         if data[y][x] == "S":
             g.graph["start"] = (x,y)
 
-    for x,y in it.product(range(columns), range(rows)):
+    for x,y in g.nodes:
         here,north,south,east,west = (x,y),(x,y-1),(x,y+1),(x+1,y),(x-1,y)
         if north in g.nodes and g.nodes[here]["north"] and g.nodes[north]["south"]:
             g.add_edge(here, north)
@@ -37,6 +38,20 @@ def parse_map(rawdata: str):
         if west in g.nodes and g.nodes[here]["west"] and g.nodes[west]["east"]:
             g.add_edge(here,west)
         
+    loop = g.graph["loop"] = set(it.chain.from_iterable(nx.find_cycle(g,source=g.graph["start"])))
+
+    # So far we've pretended that whatever pipe is under S has openings to all for sides,
+    # but now we have enough information to close off the ones that aren't part of the loop
+    x, y = g.graph["start"]
+    if (x,y-1) not in loop or not g.nodes[x,y-1]["south"]:
+        g.nodes[x,y]["north"] = False
+    if (x,y+1) not in loop or not g.nodes[x,y+1]["north"]:
+        g.nodes[x,y]["south"] = False
+    if (x-1,y) not in loop or not g.nodes[x-1,y]["east"]:
+        g.nodes[x,y]["west"] = False
+    if (x+1,y) not in loop or not g.nodes[x+1,y]["west"]:
+        g.nodes[x,y]["east"] = False
+
     return g
 
 def part_1(rawdata):
@@ -60,7 +75,7 @@ def part_1(rawdata):
     8
     """
     g = parse_map(rawdata)
-    return len(nx.find_cycle(g,source=g.graph["start"]))//2
+    return len(g.graph["loop"])//2
 
 
 def part_2(rawdata):
@@ -116,19 +131,6 @@ def part_2(rawdata):
     10
     """
     g = parse_map(rawdata)
-    loop = set(it.chain.from_iterable(nx.find_cycle(g,source=g.graph["start"])))
-
-    # the pretense that the S square has four openings ends up confusing things, so 
-    # we need to remove the openings that don't form part of the loop
-    x, y = g.graph["start"]
-    if (x,y-1) not in loop or not g.nodes[x,y-1]["south"]:
-        g.nodes[x,y]["north"] = False
-    if (x,y+1) not in loop or not g.nodes[x,y+1]["north"]:
-        g.nodes[x,y]["south"] = False
-    if (x-1,y) not in loop or not g.nodes[x-1,y]["east"]:
-        g.nodes[x,y]["west"] = False
-    if (x+1,y) not in loop or not g.nodes[x+1,y]["west"]:
-        g.nodes[x,y]["east"] = False
 
     # scan left to right looking for loop crossings
     # we cross between inside and outside when we hit an on-loop pipes opening 
@@ -140,14 +142,14 @@ def part_2(rawdata):
     for y in range(g.graph["rows"]):
         inside = False
         for x in range(g.graph["columns"]):
-            if (x,y) in loop:
+            if (x,y) in g.graph["loop"]:
                 if g.nodes[x,y]["north"]:
                     inside = not inside
             elif inside:
                 inside_points.add((x,y))
 
     # for y in range(g.graph["rows"]):
-    #     print("".join(g.nodes[x,y]["symbol"] if (x,y) in loop else "I" if (x,y) in inside_points else "O" for x in range(g.graph["columns"]) ))
+    #     print("".join(g.nodes[x,y]["symbol"] if (x,y) in g.graph["loop"] else "I" if (x,y) in inside_points else "O" for x in range(g.graph["columns"]) ))
 
     return len(inside_points)
 
