@@ -119,47 +119,37 @@ def part_2(rawdata):
     loop = set(it.chain.from_iterable(nx.find_cycle(g,source=g.graph["start"])))
 
     # the pretense that the S square has four openings ends up confusing things, so 
-    # we need to remove the openings that aren't on the loop
+    # we need to remove the openings that don't form part of the loop
     x, y = g.graph["start"]
-    if (x,y-1) not in loop:
+    if (x,y-1) not in loop or not g.nodes[x,y-1]["south"]:
         g.nodes[x,y]["north"] = False
-    if (x,y+1) not in loop:
+    if (x,y+1) not in loop or not g.nodes[x,y+1]["north"]:
         g.nodes[x,y]["south"] = False
-    if (x-1,y) not in loop:
+    if (x-1,y) not in loop or not g.nodes[x-1,y]["east"]:
         g.nodes[x,y]["west"] = False
-    if (x+1,y) not in loop:
+    if (x+1,y) not in loop or not g.nodes[x+1,y]["west"]:
         g.nodes[x,y]["east"] = False
 
-    # scan top to bottom looking for loop crossings, then repeat left to right
-    # any non-loop cells that are inside in both directions must be inside overall
-
-    # we cross between inside and outside by looking for on-loop pipes opening in one
-    # of the perpendicular directions
-    #   eg moving horizontally a run of L--J flips parity twice leaving us outside, but
-    #                                   L--7 puts us inside
-    maybe_inside = set()
-    for x in range(g.graph["columns"]):
-        inside = False
-        for y in range(g.graph["rows"]):
-            if (x,y) in loop:
-                if g.nodes[x,y]["east"]:
-                    inside = not inside
-            elif inside:
-                maybe_inside.add((x,y))
-
+    # scan left to right looking for loop crossings
+    # we cross between inside and outside when we hit an on-loop pipes opening 
+    # upward - this does the right thing both for perpendicular walls, and for parallel
+    # runs - 
+    #   eg a run of L--J flips parity twice leaving us outside, but
+    #               L--7 puts us inside
+    inside_points = set()
     for y in range(g.graph["rows"]):
         inside = False
         for x in range(g.graph["columns"]):
             if (x,y) in loop:
                 if g.nodes[x,y]["north"]:
                     inside = not inside
-            elif not inside:
-                maybe_inside.discard((x,y))
+            elif inside:
+                inside_points.add((x,y))
 
     # for y in range(g.graph["rows"]):
-    #     print("".join(g.nodes[x,y]["symbol"] if (x,y) in loop else "I" if (x,y) in maybe_inside else "O" for x in range(g.graph["columns"]) ))
+    #     print("".join(g.nodes[x,y]["symbol"] if (x,y) in loop else "I" if (x,y) in inside_points else "O" for x in range(g.graph["columns"]) ))
 
-    return len(maybe_inside)
+    return len(inside_points)
 
 if __name__ == "__main__":
     import aocd
