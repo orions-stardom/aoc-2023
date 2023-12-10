@@ -118,44 +118,46 @@ def part_2(rawdata):
     g = parse_map(rawdata)
     loop = set(it.chain.from_iterable(nx.find_cycle(g,source=g.graph["start"])))
 
-    maybe_inside = set()
+    # the pretense that the S square has four openings ends up confusing things, so 
+    # we need to remove the openings that aren't on the loop
+    x, y = g.graph["start"]
+    if (x,y-1) not in loop:
+        g.nodes[x,y]["north"] = False
+    if (x,y+1) not in loop:
+        g.nodes[x,y]["south"] = False
+    if (x-1,y) not in loop:
+        g.nodes[x,y]["west"] = False
+    if (x+1,y) not in loop:
+        g.nodes[x,y]["east"] = False
 
-    # scan first for cells that are inside the loop in one direction,
-    # then eliminate any that are outside it in the other direction
+    # scan top to bottom looking for loop crossings, then repeat left to right
+    # any non-loop cells that are inside in both directions must be inside overall
+
+    # we cross between inside and outside by looking for on-loop pipes opening in one
+    # of the perpendicular directions
+    #   eg moving horizontally a run of L--J flips parity twice leaving us outside, but
+    #                                   L--7 puts us inside
+    maybe_inside = set()
     for x in range(g.graph["columns"]):
         inside = False
-        on_loop_segment = False
         for y in range(g.graph["rows"]):
             if (x,y) in loop:
-                if g.nodes[(x,y)]["symbol"] == "|":
-                    on_loop_segment = True
-                elif not on_loop_segment:
+                if g.nodes[x,y]["east"]:
                     inside = not inside
-                continue
-
-            on_loop_segment = False
-
-            if inside:
+            elif inside:
                 maybe_inside.add((x,y))
 
     for y in range(g.graph["rows"]):
         inside = False
-        on_loop_segment = False
         for x in range(g.graph["columns"]):
             if (x,y) in loop:
-                if g.nodes[(x,y)]["symbol"] == "-":
-                    on_loop_segment = True
-                elif not on_loop_segment:
+                if g.nodes[x,y]["north"]:
                     inside = not inside
-                continue
-
-            on_loop_segment = False
-
-            if not inside:
+            elif not inside:
                 maybe_inside.discard((x,y))
 
-    for y in range(g.graph["rows"]):
-        print("".join(g.nodes[(x,y)]["symbol"] if (x,y) in loop else "I" if (x,y) in maybe_inside else "O" for x in range(g.graph["columns"]) ))
+    # for y in range(g.graph["rows"]):
+    #     print("".join(g.nodes[x,y]["symbol"] if (x,y) in loop else "I" if (x,y) in maybe_inside else "O" for x in range(g.graph["columns"]) ))
 
     return len(maybe_inside)
 
