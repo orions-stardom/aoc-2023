@@ -3,38 +3,32 @@ import functools
 
 @functools.cache
 def count(record:str, groups: tuple[int], current_group=0):
-    if not record:
-        match groups:
-            case []:
-                return current_group == 0
-            case [group]:
-                return current_group == group
-            case _:
-                return 0
-    if not groups:
-        if "#" in record:
+    if record.count("#") + record.count("?") + current_group < sum(groups):
+        return 0
+
+    match record, groups:
+        case "", []:
+            return current_group == 0
+        case "", [group]:
+            return current_group == group
+        case _, []:
+            return "#" not in record
+        case "", _:
             return 0
-        return 1
+        case _ if current_group > groups[0]:
+            return 0
+        case _:
+            c,record = record[0], record[1:]
+            res = 0
+            if c == "#" or c == "?":
+                res += count(record, groups, current_group+1)
+            if c == "." or c == "?":
+                if current_group and groups[0] == current_group:
+                    res += count(record, groups[1:], 0)
+                elif not current_group:
+                    res += count(record, groups, 0)
 
-    if current_group > groups[0]:
-        return 0
-
-    maybe_broken = record.count("#") + record.count("?") + current_group
-    if maybe_broken < sum(groups):
-        return 0
-
-    c,record = record[0], record[1:]
-
-    res = 0
-    if c == "#" or c == "?":
-        res += count(record, groups, current_group+1)
-    if c == "." or c == "?":
-        if current_group and groups[0] == current_group:
-            res += count(record, groups[1:], 0)
-        elif not current_group:
-            res += count(record, groups, 0)
-
-    return res
+            return res
 
 def parse(line:str) -> tuple[str,list[int]]:
     record, groupsdata = line.split()
