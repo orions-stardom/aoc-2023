@@ -85,10 +85,7 @@ def part_2(rawdata):
     workflows = {name: body.split(",") for name,body in map(lambda line: parse("{}{{{}}}", line), workflow_data.splitlines())}
 
     accepted_combinations = 0
-    all_parts = {"x":P.closed(1, 4000),
-                 "m":P.closed(1, 4000),
-                 "a":P.closed(1, 4000),
-                 "s":P.closed(1, 4000), }
+    all_parts = dict.fromkeys("xmas", P.closed(1, 4000))
 
     q = deque([(all_parts, "in")])
     while q:
