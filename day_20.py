@@ -82,6 +82,7 @@ def part_1(rawdata):
     11687500
     """
     modules = parse(rawdata)
+    pulses = {True: 0, False: 0}
     high_pulses = 0
     low_pulses = 0
 
@@ -91,10 +92,7 @@ def part_1(rawdata):
         while pulse_queue:
             source, target, level = pulse_queue.popleft()
             # print(f"{source} -{'high' if level else 'low'}-> {target}")
-            if level:
-                high_pulses += 1
-            else:
-                low_pulses += 1
+            pulses[level] += 1
 
             if target not in modules:
                 continue
@@ -103,13 +101,14 @@ def part_1(rawdata):
             if result is not None:
                 pulse_queue.extend((target, next_target, result) for next_target in modules[target].targets)
 
-    return high_pulses * low_pulses
+    return math.prod(pulses.values())
 
 def part_2(rawdata):
     modules = parse(rawdata)
     interesting = modules[mit.only(m for m in modules if "rx" in modules[m].targets)]
     assert isinstance(interesting, Conjunction)
-    interesting_counts = dict.fromkeys(interesting.inputs, None) 
+    # track the period of all the inputs to `interesting` as we see them go high
+    periods = {} 
 
     for presses in it.count(1):
         pulse_queue = deque([("button", "broadcaster", False)])
@@ -122,14 +121,11 @@ def part_2(rawdata):
             if result is not None:
                 pulse_queue.extend((target, next_target, result) for next_target in modules[target].targets)
 
-            # the only module that forwards to rx is a Conjunction, so it will
-            # send low when it has most recetnly received high from all its inputs
-            for m, c in interesting_counts.items():
-                if interesting.inputs[m] and c is None:
-                    interesting_counts[m] = presses
+            if modules[target] is interesting and level:
+                periods.setdefault(source, presses)
         
-            if None not in interesting_counts.values():
-                return math.lcm(*interesting_counts.values())
+            if periods.keys() == interesting.inputs.keys():
+                return math.lcm(*periods.values())
 
 if __name__ == "__main__":
     import aocd
