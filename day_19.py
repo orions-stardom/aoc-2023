@@ -4,9 +4,7 @@ from collections import deque
 from parse import parse
 
 import math
-import more_itertools as mit
 import re
-import portion as P
 
 def part_1(rawdata):
     r"""
@@ -85,7 +83,7 @@ def part_2(rawdata):
     workflows = {name: body.split(",") for name,body in map(lambda line: parse("{}{{{}}}", line), workflow_data.splitlines())}
 
     accepted_combinations = 0
-    all_parts = dict.fromkeys("xmas", P.closed(1, 4000))
+    all_parts = dict.fromkeys("xmas", range(1,4001))
 
     q = deque([(all_parts, "in")])
     while q:
@@ -94,10 +92,10 @@ def part_2(rawdata):
             if workflow == "R":
                 break
             if workflow == "A":
-                accepted_combinations += math.prod(mit.ilen(P.iterate(v,base=int,step=1)) for v in parts.values())
+                accepted_combinations += math.prod(map(len, parts.values()))
                 break
 
-            if any(i.empty for i in parts.values()):
+            if not all(parts.values()):
                 break
 
             for rule in workflows[workflow]:
@@ -109,12 +107,13 @@ def part_2(rawdata):
                 category, op, threshold = parse("{}{}{:d}", test)
                 if threshold in parts[category]:
                     new_parts = parts.copy()
+                    start,stop = parts[category].start, parts[category].stop
                     if op == "<":
-                        new_parts[category] = parts[category].replace(upper=threshold-1)
-                        parts[category] = parts[category].replace(lower=threshold)
+                        new_parts[category] = range(start, threshold)
+                        parts[category] = range(threshold, stop)
                     else:
-                        new_parts[category] = parts[category].replace(lower=threshold+1)
-                        parts[category] = parts[category].replace(upper=threshold)
+                        new_parts[category] = range(threshold+1, stop)
+                        parts[category] = range(start,threshold+1)
                     q.append((new_parts,target))
 
     return accepted_combinations
