@@ -1,4 +1,5 @@
 #!/usr/bin/env -S pdm run python
+from collections import deque
 from dataclasses import dataclass
 import networkx as nx
 
@@ -25,7 +26,7 @@ class Brick:
             case True, True, False:
                 self.xy = frozenset({complex(start[0],start[1])})
                 self.z_low = min(start[2],end[2])
-                self.z_height = max(start[2],end[2]) - self.z_low
+                self.z_height = max(start[2],end[2]) - self.z_low + 1
             case True, True, True:
                 self.xy = frozenset({complex(start[0],start[1])})
                 self.z_low = start[2]
@@ -63,6 +64,42 @@ def part_1(rawdata):
     bricks = [Brick(line) for line in rawdata.splitlines()]
     settled = settle(bricks)
     return sum(all(len(settled[other]) > 1 for other,_ in settled.in_edges(brick)) for brick in bricks)
+
+def chain_reaction(graph, destroy) -> int:
+    """
+    One brick to start the trouble
+    One push to seal its fate
+    One filter needs some action
+    One link in a chain reaction
+
+    """
+    fallen = set()
+    to_fall = deque([destroy])
+
+    while to_fall:
+        falling = to_fall.popleft()
+        fallen.add(falling)
+        to_fall.extend(brick for brick,_ in graph.in_edges(falling) if brick not in fallen and all(other in fallen for other in graph[brick]))
+
+    fallen.discard(destroy)
+    return len(fallen)
+
+def part_2(rawdata):
+    r"""
+    >>> part_2('''\
+    ... 1,0,1~1,2,1
+    ... 0,0,2~2,0,2
+    ... 0,2,3~2,2,3
+    ... 0,0,4~0,2,4
+    ... 2,0,5~2,2,5
+    ... 0,1,6~2,1,6
+    ... 1,1,8~1,1,9
+    ... ''')
+    7
+    """
+    bricks = [Brick(line) for line in rawdata.splitlines()]
+    settled = settle(bricks)
+    return sum(chain_reaction(settled, destroy=brick) for brick in bricks)
 
 if __name__ == "__main__":
     import aocd
