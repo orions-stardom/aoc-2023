@@ -1,64 +1,26 @@
 #!/usr/bin/env -S pdm run python
-from __future__ import annotations
 from collections import deque, defaultdict
-from dataclasses import dataclass, field
-from abc import ABC, abstractmethod
 import math
 import itertools as it
 import more_itertools as mit
+import networkx as nx
+import re
 
-@dataclass
-class Module(ABC):
-    targets: list[str]
-    inputs: dict[str, bool] = field(default_factory=dict)
-
-    @abstractmethod
-    def pulse(self, source: str, level:bool) -> bool|None:
-        pass
-
-class FlipFlop(Module):
-    on: bool = False
-
-    def pulse(self, source:str, level:bool) -> bool|None:
-        if level:
-            return None
-        self.on = not self.on
-        return self.on
-
-class Conjunction(Module):
-    def pulse(self, source:str, level: bool) -> bool:
-        self.inputs[source] = level
-        return not all(self.inputs.values())
-
-class Broadcaster(Module):
-    def pulse(self, source:str, level:bool) -> bool:
-        return level
-
-module_types = {"%": FlipFlop, "&": Conjunction}
-
-def parse(rawdata:str) -> dict[str,Module]:
-    modules = {}
+def parse(rawdata:str) -> nx.Graph:
+    modules = nx.DiGraph() 
     inputs = defaultdict(list)
+    modules.add_edge("button", "broadcaster", level=False)
 
     for line in rawdata.splitlines():
-        name, target_list = line.split(" -> ")
+        source, target_list = line.split(" -> ")
         targets = target_list.split(", ")
-        if name == "broadcaster":
-            modules[name] = Broadcaster(targets)
-        else:
-            type_, name = name[0], name[1:]
-            modules[name] = module_types[type_](targets)
 
-        for target in targets: 
-            inputs[target].append(name)
+        module_type, name = re.fullmatch("([%&]?)(.+)", source).groups()
+        for target in targets:
+            modules.add_edge(name, target, level=False)
 
-    for target, sources in inputs.items():
-        try:
-            modules[target].inputs = dict.fromkeys(sources, False)
-        except KeyError:
-            # the "output" module in the example doesn't ever appear as
-            # an input and doesn't actually do anything
-            pass
+        modules.nodes[name]["type"] = module_type
+        
     return modules
 
 def part_1(rawdata):
@@ -83,8 +45,6 @@ def part_1(rawdata):
     """
     modules = parse(rawdata)
     pulses = {True: 0, False: 0}
-    high_pulses = 0
-    low_pulses = 0
 
     # now everything's set up, lets push the button
     for _ in range(1000):
@@ -93,20 +53,27 @@ def part_1(rawdata):
             source, target, level = pulse_queue.popleft()
             # print(f"{source} -{'high' if level else 'low'}-> {target}")
             pulses[level] += 1
+            modules.edges[source, target]["level"] = level
 
-            if target not in modules:
-                continue
+            match modules.nodes[target].get("type"):
+                case "%": # flip-flop
+                    if level:
+                        continue
+                    modules.nodes[target]["on"] = not modules.nodes[target].get("on", False)
+                    send_level = modules.nodes[target]["on"]
+                case "&":  # conjunction
+                    send_level = not all(modules.edges[n, target]["level"] for n, _ in modules.in_edges(target))
+                case _: # broadcast
+                    send_level = level
 
-            result = modules[target].pulse(source, level)
-            if result is not None:
-                pulse_queue.extend((target, next_target, result) for next_target in modules[target].targets)
+            pulse_queue.extend((target, next_target, send_level) for next_target in modules[target])
 
     return math.prod(pulses.values())
 
 def part_2(rawdata):
     modules = parse(rawdata)
-    interesting = modules[mit.only(m for m in modules if "rx" in modules[m].targets)]
-    assert isinstance(interesting, Conjunction)
+    interesting = mit.only(modules.in_edges("rx"))[0]
+    assert modules.nodes[interesting]["type"] == "&" 
     # track the period of all the inputs to `interesting` as we see them go high
     periods = {} 
 
@@ -114,18 +81,27 @@ def part_2(rawdata):
         pulse_queue = deque([("button", "broadcaster", False)])
         while pulse_queue:
             source, target, level = pulse_queue.popleft()
-            if target not in modules:
-                continue
 
-            result = modules[target].pulse(source, level)
-            if result is not None:
-                pulse_queue.extend((target, next_target, result) for next_target in modules[target].targets)
-
-            if modules[target] is interesting and level:
+            if target == interesting and level:
                 periods.setdefault(source, presses)
         
-            if periods.keys() == interesting.inputs.keys():
+            if periods.keys() == {s for s,_ in modules.in_edges(interesting)}:
                 return math.lcm(*periods.values())
+
+            # print(f"{source} -{'high' if level else 'low'}-> {target}")
+            modules.edges[source, target]["level"] = level
+            match modules.nodes[target].get("type"):
+                case "%": # flip-flop
+                    if level:
+                        continue
+                    modules.nodes[target]["on"] = not modules.nodes[target].get("on", False)
+                    send_level = modules.nodes[target]["on"]
+                case "&":  # conjunction
+                    send_level = not all(modules.edges[n, target]["level"] for n, _ in modules.in_edges(target))
+                case _: # broadcast
+                    send_level = level
+
+            pulse_queue.extend((target, next_target, send_level) for next_target in modules[target])
 
 if __name__ == "__main__":
     import aocd
