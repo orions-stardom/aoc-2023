@@ -1,10 +1,7 @@
 #!/usr/bin/env -S pdm run python
 
 from dataclasses import dataclass
-from math import sqrt, prod
-
-import more_itertools as mit
-import portion as P
+from math import sqrt, prod, floor, ceil
 
 @dataclass
 class BoatRace:
@@ -26,8 +23,10 @@ class BoatRace:
         lo, hi = (t - sqrt(t**2 - 4*d))/2, \
                  (t + sqrt(t**2 - 4*d))/2 
 
-        positive_vals = P.open(lo,hi)
-        return mit.ilen(P.iterate(positive_vals,step=1, base=int))
+        lo_int = ceil(lo) if lo%1 else int(lo)+1
+        hi_int = floor(hi) if hi%1 else int(hi)-1
+        
+        return hi_int - lo_int + 1 
 
 def part_1(rawdata):
     r"""
