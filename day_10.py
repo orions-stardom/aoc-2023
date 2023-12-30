@@ -165,9 +165,9 @@ if __name__ == "__main__":
     # aocd has some magic introspection but it doesnt like my naming conventions
     from pathlib import Path
     f = Path(__file__)
-    puzzle_input = aocd.get_data(
-        year=f.parent.name.removeprefix("aoc-"),
-        day=int(f.stem.removeprefix("day_")))
+    year=f.parent.name.removeprefix("aoc-")
+    day=int(f.stem.removeprefix("day_"))
+    puzzle_input = aocd.get_data(year=year, day=day)
     
     for part in 1, 2:
         try:
@@ -180,6 +180,6 @@ if __name__ == "__main__":
         if solution is not None:
             print(f"Solution to part {part}: ", solution, sep="\n")
             # aocd uses parts a and b for some reason, even though AOC uses parts One and Two
-            aocd.submit(solution, part='ab'[part-1], reopen=False)
+            aocd.submit(solution,part='ab'[part-1], day=day, year=year, reopen=False)
         else:
             print("No solution to part {part} {might need to be entered manually?)")

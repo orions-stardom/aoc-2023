@@ -92,3 +92,4 @@ if __name__ == "__main__":
             aocd.submit(solution, part='ab'[part-1], reopen=False)
         else:
             print("No solution to part {part} {might need to be entered manually?)")
+
