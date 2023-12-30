@@ -15,6 +15,7 @@ dependencies = [
     "networkx>=2.8.8",
     "setuptools>=65.6.3",
     "portion>=2.4.1",
+    "sympy>=1.12",
 ]
 # name = "advent of python"
 description = "My solutions to Advent of Code 2023, in python"
